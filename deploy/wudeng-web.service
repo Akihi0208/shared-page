@@ -1,0 +1,23 @@
+[Unit]
+Description=Wudeng Handbook web and REST service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wudeng
+Group=wudeng
+WorkingDirectory=/opt/wudeng-handbook/server
+EnvironmentFile=/etc/wudeng-handbook/wudeng.env
+ExecStart=/opt/wudeng-handbook/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8791
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/wudeng-handbook/data
+
+[Install]
+WantedBy=multi-user.target
+
