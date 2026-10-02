@@ -401,6 +401,8 @@ APNS_BUNDLE_ID=com.example.couplecalendar
 
 ## 跑起来
 
+如果要装到一台长期运行的 Linux/Tailscale 服务器，直接看 [deploy/README.md](deploy/README.md)。网页 PWA 会和 REST API 一起从同一个 HTTPS 地址提供。
+
 ### 后端
 
 需要 Python 3.10 以上（建议 3.12）。
