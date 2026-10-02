@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#6f2038">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="雾灯手帐">
+  <title>雾灯手帐</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="mist mist-one"></div><div class="mist mist-two"></div>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">WUDENG JOURNAL</p>
+        <h1>雾灯手帐</h1>
+      </div>
+      <button id="settingsButton" class="icon-button" aria-label="连接设置">⚙</button>
+    </header>
+
+    <section class="date-nav" aria-label="日期导航">
+      <button id="prevButton" class="nav-button" aria-label="上一段">‹</button>
+      <button id="periodButton" class="period-button">
+        <span id="periodTitle">今天</span><small id="periodSubtitle"></small>
+      </button>
+      <button id="nextButton" class="nav-button" aria-label="下一段">›</button>
+    </section>
+
+    <nav class="view-tabs" aria-label="视图切换">
+      <button data-view="month" class="active">月</button>
+      <button data-view="week">周</button>
+      <button data-view="day">日</button>
+    </nav>
+
+    <section id="statusBar" class="status-bar" hidden></section>
+    <section id="calendar" class="calendar" aria-live="polite"></section>
+  </main>
+
+  <div class="quick-actions" aria-label="新建">
+    <button id="newNoteButton" class="quick-button note-button"><span>＋</span>便签</button>
+    <button id="newEventButton" class="quick-button event-button"><span>＋</span>日程</button>
+  </div>
+
+  <dialog id="settingsDialog">
+    <form id="settingsForm" method="dialog" class="dialog-card">
+      <div class="dialog-head"><div><p class="eyebrow">CONNECT</p><h2>打开我们的手帐</h2></div><button value="cancel" class="close-button" aria-label="关闭">×</button></div>
+      <p class="hint">密钥只保存在这台设备的浏览器里。第一次打开填一次就好。</p>
+      <label>访问密钥<input id="tokenInput" type="password" autocomplete="off" placeholder="CALENDAR_TOKEN"></label>
+      <label>接口路径<input id="apiBaseInput" type="text" value="/api/v1/calendar" spellcheck="false"></label>
+      <div class="dialog-actions"><button type="button" id="testButton" class="secondary">测试连接</button><button value="default" class="primary">保存</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="eventDialog">
+    <form id="eventForm" method="dialog" class="dialog-card">
+      <input id="eventId" type="hidden">
+      <div class="dialog-head"><div><p class="eyebrow">SCHEDULE</p><h2 id="eventDialogTitle">新日程</h2></div><button value="cancel" class="close-button" aria-label="关闭">×</button></div>
+      <label>写点什么<input id="eventTitle" required maxlength="100" placeholder="今天想一起记住什么"></label>
+      <label class="check-row"><input id="eventAllDay" type="checkbox"><span>全天</span></label>
+      <div class="two-columns"><label>开始<input id="eventStart" type="datetime-local" required></label><label>结束<input id="eventEnd" type="datetime-local" required></label></div>
+      <label>类型<select id="eventType"><option value="">普通日程</option><option value="anniversary">纪念日</option><option value="birthday">生日</option><option value="period">生理期</option></select></label>
+      <label>补一句<textarea id="eventDescription" rows="3" maxlength="500" placeholder="可不写"></textarea></label>
+      <div class="dialog-actions split"><button type="button" id="deleteEventButton" class="danger" hidden>删除</button><span></span><button value="default" class="primary">保存</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="noteDialog">
+    <form id="noteForm" method="dialog" class="dialog-card">
+      <input id="noteId" type="hidden"><input id="noteDate" type="hidden">
+      <div class="dialog-head"><div><p class="eyebrow">STICKY NOTE</p><h2 id="noteDialogTitle">贴一张便签</h2></div><button value="cancel" class="close-button" aria-label="关闭">×</button></div>
+      <label>便签<textarea id="noteBody" rows="5" required maxlength="300" placeholder="写给今天，也写给彼此"></textarea></label>
+      <div class="dialog-actions split"><button type="button" id="deleteNoteButton" class="danger" hidden>撕掉</button><span></span><button value="default" class="primary">贴上</button></div>
+    </form>
+  </dialog>
+
+  <template id="emptyTemplate"><div class="empty-state"><span>☾</span><p>这一页还空着</p><small>写一点今天，雾灯就会亮起来。</small></div></template>
+  <script src="/app.js" defer></script>
+</body>
+</html>
