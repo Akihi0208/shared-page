@@ -11,8 +11,10 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 import config
 import push
@@ -38,3 +40,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="couple-calendar", lifespan=lifespan)
 app.include_router(routes.router, prefix="/api/v1")
 app.include_router(push.router, prefix="/api/v1")
+
+# Browser/PWA frontend.  Keep this mount last: the API routes above must win
+# before the catch-all static app handles "/" and client-side assets.
+_WEB_DIR = Path(__file__).with_name("web")
+if _WEB_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=_WEB_DIR, html=True), name="web")
