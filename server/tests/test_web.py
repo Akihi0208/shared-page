@@ -57,6 +57,25 @@ class WebShellTests(unittest.TestCase):
         )
         self.assertEqual(allowed.status_code, 200)
 
+    def test_browser_can_upload_and_read_a_rendered_page(self):
+        headers = {"X-Calendar-Token": "web-test-token"}
+        png = b"\x89PNG\r\n\x1a\nweb-render"
+        uploaded = self.client.post(
+            "/api/v1/calendar/pages/2026-10-03/render",
+            headers=headers,
+            files={"file": ("2026-10-03.png", png, "image/png")},
+        )
+        self.assertEqual(uploaded.status_code, 200)
+        fetched = self.client.get(
+            "/api/v1/calendar/pages/2026-10-03/render", headers=headers)
+        self.assertEqual(fetched.status_code, 200)
+        self.assertEqual(fetched.content, png)
+
+    def test_pwa_contains_page_capture_upload(self):
+        js = self.client.get("/app.js").text
+        self.assertIn("uploadRenderedPage", js)
+        self.assertIn("/pages/${day}/render", js)
+
 
 if __name__ == "__main__":
     unittest.main()

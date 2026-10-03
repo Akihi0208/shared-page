@@ -4,6 +4,9 @@ const state = {
   view: localStorage.getItem("wudeng.view") || "month",
   cursor: todayInShanghai(), events: [], notes: [], unseen: new Set(), loading: false,
 };
+const PAGE_CAPTURE_VERSION = "web-day-v1";
+let pageCaptureTimer = null;
+let captureCssPromise = null;
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -188,6 +191,102 @@ function renderDay() {
     <div class="day-columns"><section><div class="section-title"><h3>日程</h3><span>${events.length} 件</span></div>${events.map(eventCard).join("")||'<p class="hint">今天还没有日程</p>'}</section>
     <section><div class="section-title"><h3>便签</h3><span>${notes.length} 张</span></div>${notes.map(noteCard).join("")||'<p class="hint">还没有贴便签</p>'}</section></div></div>`;
   bindCards();
+  schedulePageCapture(state.cursor);
+}
+
+function pageCaptureSignature(day) {
+  const events = eventsFor(day).map(item => [item.id,item.revision,item.title,item.description,item.starts_at,item.ends_at,item.event_type]);
+  const notes = notesFor(day).map(item => [item.id,item.revision,item.body,item.liked,item.event_id]);
+  return JSON.stringify([PAGE_CAPTURE_VERSION,day,events,notes]);
+}
+
+function schedulePageCapture(day) {
+  clearTimeout(pageCaptureTimer);
+  pageCaptureTimer = setTimeout(() => uploadRenderedPage(day).catch(error => {
+    console.warn("雾灯手帐页面图没有同步：", error);
+  }), 350);
+}
+
+async function captureStyles() {
+  if (!captureCssPromise) {
+    captureCssPromise = fetch("/app.css", {cache:"no-store"}).then(response => {
+      if (!response.ok) throw new Error(`css ${response.status}`);
+      return response.text();
+    });
+  }
+  return captureCssPromise;
+}
+
+async function dayViewPng() {
+  const source = els.calendar;
+  if (!source || !source.querySelector(".day-view")) throw new Error("day view is not rendered");
+  if (document.fonts?.ready) await document.fonts.ready;
+
+  const width = Math.max(320, Math.ceil(source.clientWidth));
+  const height = Math.max(320, Math.ceil(source.scrollHeight));
+  const css = await captureStyles();
+  const clone = source.cloneNode(true);
+  clone.classList.remove("loading");
+  clone.style.width = `${width}px`;
+  clone.style.height = `${height}px`;
+  clone.style.minHeight = "0";
+  clone.style.overflow = "visible";
+
+  const wrapper = document.createElement("div");
+  wrapper.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
+  wrapper.style.width = `${width}px`;
+  wrapper.style.height = `${height}px`;
+  wrapper.style.background = "#fffaf2";
+  const style = document.createElement("style");
+  style.textContent = css;
+  wrapper.append(style, clone);
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const foreignObject = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
+  foreignObject.setAttribute("width", "100%");
+  foreignObject.setAttribute("height", "100%");
+  foreignObject.append(wrapper);
+  svg.append(foreignObject);
+
+  const svgBlob = new Blob([new XMLSerializer().serializeToString(svg)], {type:"image/svg+xml;charset=utf-8"});
+  const url = URL.createObjectURL(svgBlob);
+  try {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = url;
+    await new Promise((resolve,reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error("browser could not render page image"));
+    });
+    const scale = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, 2200/width, 3600/height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("canvas is unavailable");
+    context.scale(scale, scale);
+    context.drawImage(image, 0, 0, width, height);
+    return await new Promise((resolve,reject) => canvas.toBlob(
+      blob => blob ? resolve(blob) : reject(new Error("png encoding failed")), "image/png"));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function uploadRenderedPage(day) {
+  if (state.view !== "day" || state.cursor !== day) return;
+  const signature = pageCaptureSignature(day);
+  const storageKey = `wudeng.pageCapture.${day}`;
+  if (localStorage.getItem(storageKey) === signature) return;
+  const png = await dayViewPng();
+  const form = new FormData();
+  form.append("file", png, `${day}.png`);
+  await api(`/pages/${day}/render`, {method:"POST", body:form});
+  localStorage.setItem(storageKey, signature);
 }
 
 function bindCards() {

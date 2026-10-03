@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
 import calendar_core as cal
 from tests.support import MemoryStorage
@@ -287,6 +289,22 @@ class ToolTests(Base):
         result = await cal.execute_calendar_see(self.storage, {"date": "2026-07-25"})
         self.assertIn("散步", result.text)
         self.assertIsNone(result.image_path)
+
+    async def test_see_with_a_page_image_returns_an_image_block(self):
+        old_pages_dir = cal._PAGES_DIR
+        with tempfile.TemporaryDirectory() as directory:
+            try:
+                cal._PAGES_DIR = Path(directory)
+                page = cal._PAGES_DIR / "2026-07-26.png"
+                page.write_bytes(b"\x89PNG\r\n\x1a\nrendered-page")
+                result = await cal.execute_calendar_see(
+                    self.storage, {"date": "2026-07-26"})
+                blocks = result.as_mcp_content()
+                self.assertEqual([block["type"] for block in blocks], ["text", "image"])
+                self.assertEqual(blocks[1]["mimeType"], "image/png")
+                self.assertIn("随文附上", result.text)
+            finally:
+                cal._PAGES_DIR = old_pages_dir
 
 
 if __name__ == "__main__":

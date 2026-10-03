@@ -1,8 +1,8 @@
 """独立 MCP 入口 —— AI 伴侣读写日历的那条路。
 
-暴露一个 tool：`calendar`（schema 跟上游网关逐字同源，description 里的称呼
-换成了 "your partner"）。`see` 动作返回 text + image 内容块 —— 那张 image
-是用户手机渲染上传的整页图（贴纸、照片、手写排版原样）。
+暴露 `calendar` 和只读快捷工具 `view_handbook_page`。`calendar` 的 schema 跟
+上游网关逐字同源（description 里的称呼换成了 "your partner"）；两者的看页
+动作都会返回 text + image 内容块 —— image 是用户浏览器或手机 app 渲染上传的整页图。
 
 两种跑法：
 
@@ -97,6 +97,29 @@ CALENDAR_TOOL: dict = {
     },
 }
 
+PAGE_VIEW_TOOL: dict = {
+    "type": "function",
+    "function": {
+        "name": "view_handbook_page",
+        "description": (
+            "Look at one rendered page of the shared handbook. Returns the page image exactly as "
+            "the user's browser or app last rendered it, together with database-exact event and note "
+            "text. Use this when the user asks you to look at, view, or comment on the page itself. "
+            "The date defaults to today in " + config.CALENDAR_TZ + "."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": config.CALENDAR_TZ + " date, YYYY-MM-DD; defaults to today.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+}
+
 _storage: Optional[Storage] = None
 
 
@@ -125,26 +148,30 @@ def _to_blocks(blocks: list[dict[str, Any]]) -> list[types.ContentBlock]:
 
 
 async def on_list_tools(ctx, params) -> types.ListToolsResult:
-    fn = CALENDAR_TOOL["function"]
-    return types.ListToolsResult(tools=[
-        types.Tool(
+    tools: list[types.Tool] = []
+    for definition in (CALENDAR_TOOL, PAGE_VIEW_TOOL):
+        fn = definition["function"]
+        tools.append(types.Tool(
             name=fn["name"],
             description=fn["description"],
             input_schema=fn["parameters"],
-        )
-    ])
+        ))
+    return types.ListToolsResult(tools=tools)
 
 
 async def on_call_tool(ctx, params: types.CallToolRequestParams) -> types.CallToolResult:
-    if params.name != "calendar":
+    if params.name not in {"calendar", "view_handbook_page"}:
         return types.CallToolResult(
             content=[types.TextContent(type="text", text=f"unknown tool: {params.name}")],
             is_error=True,
         )
     storage = await _get_storage()
+    arguments = dict(params.arguments or {})
+    if params.name == "view_handbook_page":
+        arguments = {**arguments, "action": "see"}
     # push_to_kitty=True：只有这条路会往用户手机推（没配 APNs 时是静默 no-op）
     result = await execute_calendar_tool(
-        storage, dict(params.arguments or {}), push_to_kitty=True)
+        storage, arguments, push_to_kitty=True)
     if hasattr(result, "as_mcp_content"):
         return types.CallToolResult(content=_to_blocks(result.as_mcp_content()))
     return types.CallToolResult(content=[types.TextContent(type="text", text=str(result))])
