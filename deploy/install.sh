@@ -30,6 +30,9 @@ install -d -m 0750 "${CONFIG_DIR}"
 # Copy application code without touching the persistent data directory.
 cp -a "${REPO_DIR}/server/." "${APP_DIR}/server/"
 rm -rf "${APP_DIR}/server/data" "${APP_DIR}/server/.venv" "${APP_DIR}/server/__pycache__"
+install -d -m 0755 "${APP_DIR}/server/assets"
+install -m 0644 "${REPO_DIR}/ios/Resources/Fonts/LXGWWenKai-Regular.ttf" \
+  "${APP_DIR}/server/assets/LXGWWenKai-Regular.ttf"
 
 python3 -m venv "${APP_DIR}/.venv"
 "${APP_DIR}/.venv/bin/python" -m pip install --upgrade pip

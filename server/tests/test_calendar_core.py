@@ -283,12 +283,17 @@ class ToolTests(Base):
         self.assertFalse(out["ok"])
         self.assertIn("unknown action", out["error"])
 
-    async def test_see_without_a_page_image_degrades_to_text(self):
+    async def test_see_without_uploaded_page_uses_server_render(self):
         await self.run_tool(action="create", title="散步",
                             starts_at="2026-07-25T18:00:00+08:00")
         result = await cal.execute_calendar_see(self.storage, {"date": "2026-07-25"})
         self.assertIn("散步", result.text)
         self.assertIsNone(result.image_path)
+        self.assertTrue(result.image_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertEqual(
+            [block["type"] for block in result.as_mcp_content()],
+            ["text", "image"],
+        )
 
     async def test_see_with_a_page_image_returns_an_image_block(self):
         old_pages_dir = cal._PAGES_DIR

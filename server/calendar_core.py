@@ -1304,12 +1304,15 @@ class CalendarSeeResult:
 
     text: str
     image_path: Optional[str] = None
+    image_data: Optional[bytes] = None
 
     @property
     def log_text(self) -> str:
         return self.text
 
     def image_bytes(self) -> Optional[bytes]:
+        if self.image_data is not None:
+            return self.image_data
         if not self.image_path:
             return None
         path = Path(self.image_path)
@@ -1433,6 +1436,7 @@ async def execute_calendar_see(storage, arguments: dict[str, Any]) -> CalendarSe
 
     page = _PAGES_DIR / f"{day}.png"
     image_path: Optional[str] = None
+    image_data: Optional[bytes] = None
     try:
         if page.is_file():
             image_path = str(page)
@@ -1446,7 +1450,22 @@ async def execute_calendar_see(storage, arguments: dict[str, Any]) -> CalendarSe
             if later:
                 lines.append("图之后你又动过（图上看不到）：" + "；".join(later))
         else:
-            lines.append(f"页面图：这一天{config.USER_NAME}还没画过或还没传上来，只有下面的文字")
+            try:
+                from page_renderer import render_handbook_page_png
+
+                events_by_id = {
+                    str(e.get("id")): str(e.get("title") or "") for e in events
+                }
+                image_data = render_handbook_page_png(
+                    day,
+                    weekday,
+                    [_see_event_line(event) for event in events],
+                    [_see_note_line(note, events_by_id) for note in notes],
+                )
+                lines.append("页面图：服务器根据当前内容即时画成，随文附上")
+            except Exception:
+                logger.exception("calendar: failed to render fallback page for %s", day)
+                lines.append("页面图：自动生成失败，这次只有下面的文字")
     except OSError:
         # is_file 和 stat 之间文件被人删了这种极端情形：降级成纯文字，别把整条流带崩
         # （image_bytes 里自有 is_file 兜底，读不到就只出文字块）
@@ -1462,7 +1481,9 @@ async def execute_calendar_see(storage, arguments: dict[str, Any]) -> CalendarSe
         lines.extend(_see_note_line(n, events_by_id) for n in notes)
     if not events and not notes:
         lines.append("这一天数据库里空着：没有日程也没有便签")
-    return CalendarSeeResult(text="\n".join(lines), image_path=image_path)
+    return CalendarSeeResult(
+        text="\n".join(lines), image_path=image_path, image_data=image_data
+    )
 
 
 def _push_texts(action: str, event: Optional[dict[str, Any]] = None,
