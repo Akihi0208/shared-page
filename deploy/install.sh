@@ -58,7 +58,8 @@ install -m 0644 "${SCRIPT_DIR}/wudeng-mcp.service" /etc/systemd/system/wudeng-mc
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 
 systemctl daemon-reload
-systemctl enable --now wudeng-web.service wudeng-mcp.service
+systemctl enable wudeng-web.service wudeng-mcp.service
+systemctl restart wudeng-web.service wudeng-mcp.service
 
 echo
 echo "雾灯手帐已经在本机启动："
